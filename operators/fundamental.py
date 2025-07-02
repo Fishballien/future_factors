@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 
 
-from utils.speedutils import timeit
+# from utils.speedutils import timeit
 
 
 # %%
@@ -33,7 +33,7 @@ def imb01(bid, ask):
         pd.DataFrame or pd.Series: 计算后的 imbalance 数据，与输入类型一致。
     """
     # 计算 bid + ask
-    sum_bid_ask = bid + ask
+    sum_bid_ask = (bid + ask).replace(0, np.nan)
      
     # 使用 np.where 进行条件判断
     imbalance = np.where(
@@ -49,7 +49,7 @@ def imb01(bid, ask):
         return pd.Series(imbalance, index=bid.index, name=bid.name)
     else:
         raise TypeError("Inputs must be pandas DataFrame or Series.")
-        
+
         
 def imb02(bid_factor, ask_factor):
     """
@@ -344,4 +344,56 @@ def add(bid_factor, ask_factor):
         return pd.Series(imbalance, index=bid_factor.index, name=bid_factor.name)
     else:
         raise TypeError("Inputs must be pandas DataFrame or Series.")
+        
+        
+def imb01_rob(bid, ask):
+    """
+    增强版 imb01: 计算 imbalance (bid - ask) / (bid + ask)
+    当 bid + ask == 0 时返回 NaN，包含更好的异常处理。
+    兼容 DataFrame 和 Series 类型的输入。
+
+    Parameters:
+        bid (pd.DataFrame or pd.Series): bid 数据。
+        ask (pd.DataFrame or pd.Series): ask 数据。
+
+    Returns:
+        pd.DataFrame or pd.Series: 计算后的 imbalance 数据，与输入类型一致。
+    """
+    try:
+        # 计算 bid + ask
+        sum_bid_ask = bid + ask
+        
+        # 使用 np.where 进行条件判断，处理零除错误
+        with np.errstate(divide='ignore', invalid='ignore'):
+            imbalance = np.where(
+                (sum_bid_ask == 0) | np.isclose(sum_bid_ask, 0, atol=1e-10),
+                np.nan,
+                (bid - ask) / sum_bid_ask
+            )
+        
+        # 根据输入类型返回对应类型的结果
+        if isinstance(bid, pd.DataFrame):
+            result = pd.DataFrame(imbalance, index=bid.index, columns=bid.columns)
+        elif isinstance(bid, pd.Series):
+            result = pd.Series(imbalance, index=bid.index, name=bid.name)
+        else:
+            raise TypeError("Inputs must be pandas DataFrame or Series.")
+        
+        # 额外检查：将任何inf值转换为nan
+        if isinstance(result, pd.DataFrame):
+            result = result.replace([np.inf, -np.inf], np.nan)
+        else:
+            result = result.replace([np.inf, -np.inf], np.nan)
+            
+        return result
+        
+    except Exception as e:
+        print(f"Error in robust_imb01: {str(e)}")
+        # 返回与输入形状相同的NaN数组
+        if isinstance(bid, pd.DataFrame):
+            return pd.DataFrame(np.nan, index=bid.index, columns=bid.columns)
+        elif isinstance(bid, pd.Series):
+            return pd.Series(np.nan, index=bid.index, name=bid.name)
+        else:
+            raise TypeError("Inputs must be pandas DataFrame or Series.")
 
