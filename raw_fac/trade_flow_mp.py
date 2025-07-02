@@ -32,7 +32,7 @@ import time
 # %% add sys path
 file_path = Path(__file__).resolve()
 file_dir = file_path.parents[0]
-project_dir = file_path.parents[0]
+project_dir = file_path.parents[1]
 sys.path.append(str(project_dir))
 
 # %%
@@ -79,7 +79,9 @@ def calc_order_flow_per_fut_per_day(date, data_all, instru_id, interval='1min', 
             return res
         
         # 计算VWAP和中间价
-        data['vwap'] = data['Turnover'] / data['Volume'] / 200
+        data['turnover'] = data['Turnover'].diff()
+        data['volume'] = data['Volume'].diff()
+        data['vwap'] = data['turnover'] / data['volume'] / 200
         data['midprice'] = (data['BidPrice1'] + data['AskPrice1']) / 2
         data['midprice_diff'] = data['midprice'].diff()
         data['vwap_lastmpc_diff'] = (data['vwap'] - data['midprice']).shift(1)
@@ -103,15 +105,15 @@ def calc_order_flow_per_fut_per_day(date, data_all, instru_id, interval='1min', 
         # 计算每个tick的主买和主卖金额
         data['act_buy_amount'] = 0.0
         data['act_sell_amount'] = 0.0
-        data.loc[data['trade_direction'] == 1, 'act_buy_amount'] = data.loc[data['trade_direction'] == 1, 'Turnover']
-        data.loc[data['trade_direction'] == -1, 'act_sell_amount'] = data.loc[data['trade_direction'] == -1, 'Turnover']
+        data.loc[data['trade_direction'] == 1, 'act_buy_amount'] = data.loc[data['trade_direction'] == 1, 'turnover']
+        data.loc[data['trade_direction'] == -1, 'act_sell_amount'] = data.loc[data['trade_direction'] == -1, 'turnover']
         
         # 创建时间索引
         data['DateTime'] = pd.to_datetime(data['TradDay'].astype(str) + ' ' + data['UpdateTime'].astype(str))
         data.set_index('DateTime', inplace=True)
         
         # 按指定间隔聚合
-        minute_data = data.resample(interval).agg({
+        minute_data = data.resample(interval, closed='right', label='right').agg({
             'act_buy_amount': 'sum',
             'act_sell_amount': 'sum'
         })

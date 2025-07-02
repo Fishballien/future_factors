@@ -44,7 +44,9 @@ date_in_dt = datetime.strptime(date, '%Y%m%d')
 
 
 # %%
-data['vwap'] = data['Turnover'] / data['Volume'] / 200
+data['turnover'] = data['Turnover'].diff()
+data['volume'] = data['Volume'].diff()
+data['vwap'] = data['turnover'] / data['volume'] / 200
 data['midprice'] = (data['BidPrice1'] + data['AskPrice1']) / 2
 data['midprice_diff'] = data['midprice'].diff()
 data['vwap_lastmpc_diff'] = (data['vwap'] - data['midprice']).shift(1)
@@ -74,13 +76,13 @@ data.loc[vwap_eq_midprice, 'trade_direction'] = data['trade_direction'].shift(1)
 data['act_buy_amount'] = 0.0
 data['act_sell_amount'] = 0.0
 
-data.loc[data['trade_direction'] == 1, 'act_buy_amount'] = data.loc[data['trade_direction'] == 1, 'Turnover']
-data.loc[data['trade_direction'] == -1, 'act_sell_amount'] = data.loc[data['trade_direction'] == -1, 'Turnover']
+data.loc[data['trade_direction'] == 1, 'act_buy_amount'] = data.loc[data['trade_direction'] == 1, 'turnover']
+data.loc[data['trade_direction'] == -1, 'act_sell_amount'] = data.loc[data['trade_direction'] == -1, 'turnover']
 
 # 按分钟聚合
 data['DateTime'] = pd.to_datetime(data['TradDay'].astype(str) + ' ' + data['UpdateTime'].astype(str))
 data.set_index('DateTime', inplace=True)
-minute_data = data.resample('1min').agg({
+minute_data = data.resample('1min', closed='right', label='right').agg({
     'act_buy_amount': 'sum',
     'act_sell_amount': 'sum'
 })
